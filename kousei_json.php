@@ -1,7 +1,7 @@
 <?php
 
 $yhost = "https://jlp.yahooapis.jp/KouseiService/V1/kousei";
-$appid ="dj00aiZpPWZMYUJJU3pwc1RxcSZzPWNvbnN1bWVyc2VjcmV0Jng9ZTg-";
+$appid ="（ここに、APPIDを設定してください）";
 
 $keyword = [
 "StartPos",

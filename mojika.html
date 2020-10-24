@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>文字を数える(React)</title>
+<style type="text/css">
+<!--
+body {
+  font-size: 12pt;
+}
+textarea {
+  width: 500px;
+  height: 200px;
+}
+input.in {
+  width: 110px;
+  background-color: lightgray;
+}
+input.out {
+  width: 100px;
+  pointer-events : none;
+}
+span.blue {
+  color:blue;
+  font-weight:bold;
+}
+span.red {
+  color:red;
+  font-weight:bold;
+}
+span.green {
+  color:green;
+  font-weight:bold;
+}
+span.lightblue {
+  background-color: skyblue;
+}
+span.yellow {
+  background-color: yellow;
+}
+
+div#html_view {
+  margin: 10pt 2pt;
+  width: 600px;
+}
+-->
+</style>
+
+<script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<p>このページでは文字を数えて、さらに日本語の校正を行います<br>
+Yahoo API を使っています。詳細は、Yahoo APIのページを参照してください。<br>
+<a href="https://developer.yahoo.co.jp/webapi/jlp/kousei/v1/kousei.html">
+Yahooデベロッパーネットワーク・校正支援
+</a>
+<br>
+仕様上、文章の中に「&lt;」や「&gt;」が含まれていると、処理結果が崩れることがります。<br>
+</p>
+
+<div id="app"></div>
+<script type="text/babel">
+/*
+ * ReactDOM script
+ */
+class App extends React.Component {
+  constructor() {
+    super();
+    this.state = {
+      text_view:   '',
+      ts1: '',
+      ts2: '',
+      ts3: '',
+      val1: 0,
+      val2: 0,
+      val3: 0,
+      calc: 0,
+      datas: []
+    };
+  }
+  /*
+   * ボタンを押した処理
+   */
+  onClick(e) {
+    const self = this;
+    const url = 'http://muzina630.wp.xdomain.jp/js/kousei_json.php';
+    var geturl = url + "?sentence=" + this.refs.ts.value;
+    axios
+    .get(geturl)
+    .then((results) => {
+      const data = results.data;
+      self.setState({
+        datas: data.kousei
+      })
+    })
+    .catch(error => console.log(error))
+  }
+
+  onChange() {
+    /*
+     * 表示する数値を計算
+     */
+    var buffer = this.refs.ts.value.replace(/\r?\n/g,""); 
+    var out = buffer.length;
+    var kv1 = 0;
+    var kv2 = 0;
+    var kv3 = 0;
+    var ts1 = this.refs.key1.value;
+    var ts2 = this.refs.key2.value;
+    var ts3 = this.refs.key3.value;
+    if( ts1 != "" ) {
+      kv1 = Count_Word( buffer, ts1 );
+    }
+    if( ts2 != "" ) {
+      kv2 = Count_Word( buffer, ts2 );
+    }
+    if( ts3 != "" ) {
+      kv3 = Count_Word( buffer, ts3 );
+    }
+    /*
+     * 計算値をstateに反映
+     */
+    this.setState({
+      text_view  : buffer,
+      ts1: ts1,
+      ts2: ts2,
+      ts3: ts3,
+      val1: kv1,
+      val2: kv2,
+      val3: kv3,
+      calc: out,
+      datas: []
+    });
+  }
+  render() {
+    /*
+     * 校正結果を記載したHTMLを生成
+     */
+    var html_view = ParseYahooKousei( this.state.text_view, this.state.ts1, this.state.ts2, this.state.ts3, this.state.datas );
+    /*
+     * 表示するページを作る処理
+     */
+    return (
+      <div>
+        <textarea ref="ts" onChange={this.onChange.bind(this)} placeholder="ここにコピペ." />
+        <br />
+        キーワード：①<input class="in" type="text" ref="key1" onChange={this.onChange.bind(this)} placeholder="キーワード１" />
+        ②<input class="in" type="text" ref="key2" onChange={this.onChange.bind(this)} placeholder="キーワード２" />
+        ③<input class="in" type="text" ref="key3" onChange={this.onChange.bind(this)} placeholder="キーワード３" />
+        <br />
+        <button type="button" onClick={this.onClick.bind(this)}>チェック</button>　
+        <button type="button" onClick={clear_key.bind(this)}>クリア</button>　
+        <button type="button" onClick={clear_all.bind(this)}>全クリア</button>　
+        <br /><br />
+        文字数：<input class="out" type="text" ref="calc" value={this.state.calc} />
+        <br />
+        キーワード数：①<input class="out" type="text" ref="val1" value={this.state.val1} />
+        ②<input class="out" type="text" ref="val2" value={this.state.val2} />
+        ③<input class="out" type="text" ref="val3" value={this.state.val3} />
+        <br />
+        <div id="html_view" dangerouslySetInnerHTML={{__html: html_view}}></div>
+        <br />
+      </div>
+    );
+    /*
+     * クリアボタンを押した場合の処理(キーワードのみ残る）
+     */
+    function clear_key() {
+      this.setState({
+        text_view: '',
+        calc: 0,
+        val1: 0,
+        val2: 0,
+        val3: 0,
+        datas: []
+      });
+      this.refs.ts.value = "";
+    }
+    /*
+     * 全クリアボタンを押した場合の処理
+     */
+    function clear_all() {
+      this.setState({
+        text_view: '',
+        calc: 0,
+        val1: 0,
+        val2: 0,
+        val3: 0,
+        datas: []
+      });
+      this.refs.ts.value = "";
+      this.refs.key1.value = "";
+      this.refs.key2.value = "";
+      this.refs.key3.value = "";
+    }
+  }
+}
+
+ReactDOM.render(<App/>, document.getElementById('app'));
+
+/*
+ * 文字を数える関数
+ */
+    function Count_Word( target_str, reg_str ) {
+      var regex = new RegExp( reg_str + '(.*?)', 'g');
+      if( target_str.match(regex) == null ) {
+        count = 0;
+      } else {
+        var t_match = target_str.match(regex);
+        var count = t_match.length;
+      }
+      return( count );
+    }
+/*
+ * 文字校正結果表示用のHTMLを作成
+ */ 
+function ParseYahooKousei(buffer, k1, k2, k3, jsonobj ) {
+
+  var limit = buffer.length;
+  var str1 = '';
+  var str2 = '';
+  var out = '';
+  var old_pos = 0;
+  var colors = '';
+  var spos = 0;
+  var lens = 0;
+
+  if( jsonobj.length > 0 ) {
+
+    for(var i=0; i<jsonobj.length; i++ ) {
+      spos = Number( jsonobj[i].StartPos ); 
+      lens = Number( jsonobj[i].Length ); 
+      if(( jsonobj[i].ShitekiInfo === "用字" ) || ( jsonobj[i].ShitekiInfo === "略語" )) {
+        colors = "lightblue";
+      } else {
+        colors = "yellow";
+      }
+      str1 = buffer.substr(old_pos, spos - old_pos);
+      str2 = '<span class="' + colors + '" title="' + jsonobj[i].ShitekiInfo + "：" + jsonobj[i].ShitekiWord + '">' + buffer.substr( spos, lens ) + '</span>';
+      old_pos = spos + lens;
+      out = out + str1 + str2;
+    }
+    var str3 = buffer.substr(old_pos, buffer.length - old_pos);
+    out = out + str3 + "</p>\n"; 
+  } else {
+    out = buffer;
+  }
+
+  var html_str = Colored_words_html( out, k1, k2, k3 )
+  return(html_str);
+}
+
+function Colored_words_html( target_str, ks1, ks2, ks3 ) {
+  var tmp_str = target_str;
+  var mod_str = "";
+  if( ks1 != null ) {
+    mod_str = Replace_Text( tmp_str, ks1, "<span class='red'>","</span>" )
+    tmp_str = mod_str;
+  }
+  if( ks2 != null ) {
+    mod_str = Replace_Text( tmp_str, ks2, "<span class='blue'>","</span>" )
+    tmp_str = mod_str;
+  }
+  if( ks3 != null ) {
+    mod_str = Replace_Text( tmp_str, ks3, "<span class='green'>","</span>" )
+    tmp_str = mod_str;
+  }
+  return( tmp_str );
+}
+
+function Replace_Text( target_str, key, rep_start, rep_end  ) {
+  var text_str = new String();
+  var tag_str = new String();
+  var match_sw, ignore_sw, i, j, chk;
+  ignore_sw = 0;
+  for( i=0; i<target_str.length; i++) { 
+    chk = target_str[i];
+    if( chk === "<" ) {
+      ignore_sw = ignore_sw +1;
+      tag_str = "";
+    }
+    if(ignore_sw == 0 ) {
+      if( chk == key[0] ) {
+        match_sw=0;
+        for( j=0; j<key.length; j++) {
+          if( target_str[i+j] != key[j] ) {
+            match_sw=1;
+            break;
+          }
+        }
+        if( match_sw == 0 ) {
+          text_str = text_str + rep_start + key + rep_end ;
+          i = i + key.length-1;
+        } else {
+          text_str = text_str + chk;
+        }
+      } else {
+        text_str = text_str + chk;
+      }
+    } else {
+      tag_str = tag_str + chk;
+    }
+    if( chk === ">" ) {
+      ignore_sw = ignore_sw -1;
+      if( ignore_sw == 0 ) {
+        text_str = text_str + tag_str;
+      }
+      if( ignore_sw < 0 ) {
+        ignore_sw = 0;
+      }
+    } 
+  }
+  return(text_str);
+}
+</script>
+
+</body>
+</html>
